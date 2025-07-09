@@ -45,7 +45,7 @@ jobs:
 
       - name: Trigger CD Repo
         run: |
-          gh workflow run react.yml -R nirajan-devops/workflow-cd \
+          gh workflow run react.yml -R nirajan-devops/ci-workflows \
             -f app_name=${{ inputs.app_name }} \
             -f artifact_name=${{ inputs.app_name }}-build
         env:
