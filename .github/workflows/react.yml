@@ -11,6 +11,14 @@ on:
         description: "Artifact name"
         required: true
         type: string
+  workflow_call:
+    inputs:
+      app_name:
+        required: true
+        type: string
+      artifact_name:
+        required: true
+        type: string      
 
 jobs:
   build-test:
