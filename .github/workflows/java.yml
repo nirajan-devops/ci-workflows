@@ -1,17 +1,36 @@
-name: Java CI
+# ci-workflows/.github/workflows/java.yml
+name: Reusable Java CI Workflow
 
 on:
   workflow_call:
+    inputs:
+      docker_build:
+        required: false
+        type: boolean
+    secrets:
+      DOCKER_HUB_USERNAME:
+        required: false
+      DOCKER_HUB_PASSWORD:
+        required: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+
       - name: Build with Maven
-        run: mvn clean install
+        run: ./mvnw clean package --no-transfer-progress
+
+      - name: Docker Build & Push (optional)
+        if: inputs.docker_build == true
+        run: |
+          docker build -t hello-springboot:latest .
