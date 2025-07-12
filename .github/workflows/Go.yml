@@ -2,6 +2,15 @@ name: reusable-go-ci
 
 on:
   workflow_call:
+    inputs:
+      go-version:
+        type: string
+        required: false
+        default: '1.24'
+      context:
+        type: string
+        required: false
+        default: '.'
     
 
 jobs:
