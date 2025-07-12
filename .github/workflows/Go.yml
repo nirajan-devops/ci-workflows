@@ -2,13 +2,7 @@ name: reusable-go-ci
 
 on:
   workflow_call:
-    inputs:
-      go-version:
-        type: string
-        default: '1.24'
-      context:
-        type: string
-        default: '.'
+    
 
 jobs:
   build-and-test:
