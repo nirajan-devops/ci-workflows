@@ -54,12 +54,34 @@ jobs:
 
       - name: Create wp-config.php
         run: |
-          cp wp-config-sample.php wp-config.php
-          sed -i "s/database_name_here/wordpress_test/g" wp-config.php
-          sed -i "s/username_here/wordpress/g" wp-config.php
-          sed -i "s/password_here/wordpress/g" wp-config.php
-          sed -i "s/localhost/127.0.0.1/g" wp-config.php
-          echo "define('WP_ENVIRONMENT_TYPE', 'ci');" >> wp-config.php
+          cat << 'EOF' > wp-config.php
+          <?php
+          define('DB_NAME', 'wordpress_test');
+          define('DB_USER', 'wordpress');
+          define('DB_PASSWORD', 'wordpress');
+          define('DB_HOST', '127.0.0.1');
+          define('DB_CHARSET', 'utf8');
+          define('DB_COLLATE', '');
+    
+          define('AUTH_KEY',         'put your unique phrase here');
+          define('SECURE_AUTH_KEY',  'put your unique phrase here');
+          define('LOGGED_IN_KEY',    'put your unique phrase here');
+          define('NONCE_KEY',        'put your unique phrase here');
+          define('AUTH_SALT',        'put your unique phrase here');
+          define('SECURE_AUTH_SALT', 'put your unique phrase here');
+          define('LOGGED_IN_SALT',   'put your unique phrase here');
+          define('NONCE_SALT',       'put your unique phrase here');
+    
+          \$table_prefix = 'wp_';
+          define('WP_DEBUG', true);
+          define('WP_ENVIRONMENT_TYPE', 'ci');
+    
+          if (!defined('ABSPATH')) {
+            define('ABSPATH', __DIR__ . '/');
+          }
+    
+          require_once ABSPATH . 'wp-settings.php';
+          EOF
 
       - name: Run tests
         run: ${{ inputs.test-command }}
