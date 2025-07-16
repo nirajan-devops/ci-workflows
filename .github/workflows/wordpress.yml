@@ -1,0 +1,121 @@
+name: WordPress CI
+
+# ------------------------------------------------------------
+# This workflow *can* run stand‑alone on pushes to ci-workflows,
+# *and* it exposes `workflow_call` so other repos can reuse it.
+# ------------------------------------------------------------
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_call:
+    inputs:
+      php-versions:
+        description: 'JSON array of PHP versions to test against'
+        required: false
+        type: string
+        default: '["8.1","8.2","8.3"]'
+
+      wp-version:
+        description: 'WordPress version (latest|beta|nightly|5.8.0 …)'
+        required: false
+        type: string
+        default: 'latest'
+
+      run-phpcs:
+        description: 'Run WordPress Coding Standards (PHPCS)?'
+        required: false
+        type: boolean
+        default: true
+
+      run-unit:
+        description: 'Run PHPUnit tests?'
+        required: false
+        type: boolean
+        default: true
+
+    secrets:
+      GH_PAT:            # optional – use if you need a PAT to pull private deps
+        required: false
+
+env:
+  # Change these if your plugin/theme uses a different DB name/pass
+  WP_DB_NAME: wordpress_test
+  WP_DB_USER: root
+  WP_DB_PASS: root
+  WP_DB_HOST: 127.0.0.1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ${{ fromJson(inputs.php-versions) }}
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ env.WP_DB_PASS }}
+          MYSQL_DATABASE: ${{ env.WP_DB_NAME }}
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -p${{ env.WP_DB_PASS }}"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, mysql
+          coverage: none
+
+      # ---------- Composer deps & cache ----------
+      - name: Cache composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ matrix.php }}-${{ hashFiles('**/composer.lock') }}
+          restore-keys: composer-${{ matrix.php }}-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      # ---------- WordPress test install ----------
+      - name: Download WordPress ${{ inputs.wp-version }}
+        run: |
+          mkdir -p /tmp/wordpress
+          curl -sSL https://wordpress.org/${{ inputs.wp-version }}.tar.gz | tar -xz -C /tmp
+          mv /tmp/wordpress /tmp/wordpress-src
+
+      - name: Install WordPress test suite
+        run: |
+          bash bin/install-wp-tests.sh \
+            $WP_DB_NAME  $WP_DB_USER  $WP_DB_PASS  $WP_DB_HOST  \
+            ${{ inputs.wp-version }}
+
+      # ---------- Static analysis ----------
+      - name: Run PHPCS (WordPress Coding Standards)
+        if: inputs.run-phpcs == true
+        run: |
+          vendor/bin/phpcs -p --standard=WordPress \
+            --ignore=vendor/*,node_modules/* .
+
+      # ---------- PHPUnit ----------
+      - name: Run plugin/theme test suite
+        if: inputs.run-unit == true
+        run: |
+          vendor/bin/phpunit --testsuite unit
+
+      # ---------- Upload coverage (optional) ----------
+      #     Add your Codecov / Coveralls step here if needed
