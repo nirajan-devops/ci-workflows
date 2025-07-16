@@ -42,17 +42,24 @@ jobs:
           extensions: mbstring, dom, mysqli, intl
           coverage: none
 
+      - name: Install WordPress core
+        run: |
+          composer create-project johnpbloch/wordpress-core-installer:^2.0 wordpress-tmp --no-interaction
+          mv wordpress-tmp/* .
+          rm -rf wordpress-tmp
+
       - name: Install dependencies
         run: |
           composer install --prefer-dist --no-progress --no-suggest
 
-      - name: Set up WordPress test environment
+      - name: Create wp-config.php
         run: |
           cp wp-config-sample.php wp-config.php
           sed -i "s/database_name_here/wordpress_test/g" wp-config.php
           sed -i "s/username_here/wordpress/g" wp-config.php
           sed -i "s/password_here/wordpress/g" wp-config.php
           sed -i "s/localhost/127.0.0.1/g" wp-config.php
+          echo "define('WP_ENVIRONMENT_TYPE', 'ci');" >> wp-config.php
 
       - name: Run tests
         run: ${{ inputs.test-command }}
