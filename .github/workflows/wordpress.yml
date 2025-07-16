@@ -61,11 +61,16 @@ jobs:
 
       - name: Set up WordPress test library
         run: |
-          mkdir -p /tmp/wordpress-tests-lib
-          svn co --quiet https://develop.svn.wordpress.org/trunk/tests/phpunit/includes/ /tmp/wordpress-tests-lib/includes
-          svn co --quiet https://develop.svn.wordpress.org/trunk/tests/phpunit/data/ /tmp/wordpress-tests-lib/data
+          # Create directory structure
+          mkdir -p /tmp/wordpress-tests-lib/includes
+          mkdir -p /tmp/wordpress-tests-lib/data
           
-          # Create test config file
+          # Download test files
+          wget https://develop.svn.wordpress.org/trunk/tests/phpunit/includes/bootstrap.php -P /tmp/wordpress-tests-lib/includes/
+          wget https://develop.svn.wordpress.org/trunk/tests/phpunit/includes/functions.php -P /tmp/wordpress-tests-lib/includes/
+          wget https://develop.svn.wordpress.org/trunk/tests/phpunit/wp-tests-config-sample.php -P /tmp/wordpress-tests-lib/
+          
+          # Set up test config
           cp /tmp/wordpress-tests-lib/wp-tests-config-sample.php /tmp/wordpress-tests-lib/wp-tests-config.php
           sed -i "s/youremptytestdbnamehere/wordpress_test/g" /tmp/wordpress-tests-lib/wp-tests-config.php
           sed -i "s/yourusernamehere/wordpress/g" /tmp/wordpress-tests-lib/wp-tests-config.php
