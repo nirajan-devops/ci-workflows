@@ -5,9 +5,6 @@ name: WordPress CI
 # *and* it exposes `workflow_call` so other repos can reuse it.
 # ------------------------------------------------------------
 on:
-  push:
-    branches: [main, master]
-  pull_request:
   workflow_call:
     inputs:
       php-versions:
@@ -34,12 +31,8 @@ on:
         type: boolean
         default: true
 
-    secrets:
-      GH_PAT:            # optional – use if you need a PAT to pull private deps
-        required: false
-
 env:
-  # Change these if your plugin/theme uses a different DB name/pass
+  ## Change these if your plugin/theme uses a different DB name/pass
   WP_DB_NAME: wordpress_test
   WP_DB_USER: root
   WP_DB_PASS: root
@@ -59,11 +52,11 @@ jobs:
       mysql:
         image: mysql:8
         env:
-          MYSQL_ROOT_PASSWORD: ${{ env.WP_DB_PASS }}
-          MYSQL_DATABASE: ${{ env.WP_DB_NAME }}
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
         ports: ['3306:3306']
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -p${{ env.WP_DB_PASS }}"
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -p"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
@@ -101,8 +94,8 @@ jobs:
       - name: Install WordPress test suite
         run: |
           bash bin/install-wp-tests.sh \
-            $WP_DB_NAME  $WP_DB_USER  $WP_DB_PASS  $WP_DB_HOST  \
-            ${{ inputs.wp-version }}
+            $WP_DB_NAME  $WP_DB_USER  $WP_DB_PASS  $WP_DB_HOST latest
+          
 
       # ---------- Static analysis ----------
       - name: Run PHPCS (WordPress Coding Standards)
