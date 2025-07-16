@@ -1,117 +1,58 @@
 name: WordPress CI
 
-# ------------------------------------------------------------
-# This workflow is reusable only; it runs when another
-# workflow calls it with `uses: <org>/ci-workflows/.github/workflows/wordpress.yml@<ref>`
-# ------------------------------------------------------------
 on:
   workflow_call:
     inputs:
-      php-versions:
-        description: 'JSON array of PHP versions to test against'
-        required: false
+      php-version:
+        description: 'PHP version to test against'
         type: string
-        default: '["8.1","8.2","8.3"]'
-
-      wp-version:
-        description: 'WordPress version (latest|beta|nightly|5.8.0 …)'
-        required: false
+        default: '8.2'
+      wordpress-version:
+        description: 'WordPress version to test against'
         type: string
         default: 'latest'
-
-      run-phpcs:
-        description: 'Run WordPress Coding Standards (PHPCS)?'
-        required: false
-        type: boolean
-        default: true
-
-      run-unit:
-        description: 'Run PHPUnit tests?'
-        required: false
-        type: boolean
-        default: true
-
-    secrets:
-      GH_PAT:        # optional – for private Composer repos if you need it
-        description: 'Personal Access Token'
-        required: false
-
-# -----------------------------------------------------------------
-# Environment variables available *inside steps* (not in services)
-# -----------------------------------------------------------------
-env:
-  WP_DB_NAME: wordpress_test
-  WP_DB_USER: root
-  WP_DB_PASS: root
-  WP_DB_HOST: 127.0.0.1
+      test-command:
+        description: 'Custom test command to run'
+        type: string
+        default: 'composer test'
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
 
-    strategy:
-      fail-fast: false
-      matrix:
-        php: ${{ fromJson(inputs.php-versions) }}
-
-    # --------------------------- Database --------------------------
     services:
-      mysql:
-        image: mysql:8
+      db:
+        image: mysql:5.7
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: wordpress_test
-        ports: ['3306:3306']
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+          MYSQL_USER: wordpress
+          MYSQL_PASSWORD: wordpress
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
-    # --------------------------- Steps -----------------------------
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Set up PHP ${{ matrix.php }}
+      - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: ${{ matrix.php }}
-          extensions: mbstring, mysql
+          php-version: ${{ inputs.php-version }}
+          extensions: mbstring, dom, mysqli, intl
           coverage: none
 
-      # ---------- Composer deps & cache ----------
-      - name: Cache Composer
-        uses: actions/cache@v4
-        with:
-          path: ~/.composer/cache
-          key: composer-${{ matrix.php }}-${{ hashFiles('composer.lock') }}
-          restore-keys: composer-${{ matrix.php }}-
-
-      - name: Install Composer dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress
-
-      # ---------- WordPress test install ----------
-      - name: Download WordPress ${{ inputs.wp-version }}
+      - name: Install dependencies
         run: |
-          mkdir -p /tmp/wordpress
-          curl -sSL https://wordpress.org/${{ inputs.wp-version }}.tar.gz | tar -xz -C /tmp
-          mv /tmp/wordpress /tmp/wordpress-src
+          composer install --prefer-dist --no-progress --no-suggest
 
-      - name: Install WordPress test suite
+      - name: Set up WordPress test environment
         run: |
-          bash bin/install-wp-tests.sh \
-            $WP_DB_NAME $WP_DB_USER $WP_DB_PASS $WP_DB_HOST latest
+          cp wp-config-sample.php wp-config.php
+          sed -i "s/database_name_here/wordpress_test/g" wp-config.php
+          sed -i "s/username_here/wordpress/g" wp-config.php
+          sed -i "s/password_here/wordpress/g" wp-config.php
+          sed -i "s/localhost/127.0.0.1/g" wp-config.php
 
-      # ---------- Static analysis ----------
-      - name: Run PHPCS (WordPress Coding Standards)
-        if: inputs.run-phpcs == true
-        run: vendor/bin/phpcs -p --standard=WordPress --ignore=vendor/*,node_modules/* .
-
-      # ---------- PHPUnit ----------
-      - name: Run PHPUnit test suite
-        if: inputs.run-unit == true
-        run: vendor/bin/phpunit --testsuite unit
+      - name: Run tests
+        run: ${{ inputs.test-command }}
