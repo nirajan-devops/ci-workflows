@@ -38,7 +38,14 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y subversion mysql-client
+          sudo apt-get install -y subversion mysql-client wget
+
+      - name: Install WP-CLI
+        run: |
+          wget https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+          chmod +x wp-cli.phar
+          sudo mv wp-cli.phar /usr/local/bin/wp
+          wp --info
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
