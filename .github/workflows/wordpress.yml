@@ -64,6 +64,13 @@ jobs:
           mkdir -p /tmp/wordpress-tests-lib
           svn co --quiet https://develop.svn.wordpress.org/trunk/tests/phpunit/includes/ /tmp/wordpress-tests-lib/includes
           svn co --quiet https://develop.svn.wordpress.org/trunk/tests/phpunit/data/ /tmp/wordpress-tests-lib/data
+          
+          # Create test config file
+          cp /tmp/wordpress-tests-lib/wp-tests-config-sample.php /tmp/wordpress-tests-lib/wp-tests-config.php
+          sed -i "s/youremptytestdbnamehere/wordpress_test/g" /tmp/wordpress-tests-lib/wp-tests-config.php
+          sed -i "s/yourusernamehere/wordpress/g" /tmp/wordpress-tests-lib/wp-tests-config.php
+          sed -i "s/yourpasswordhere/wordpress/g" /tmp/wordpress-tests-lib/wp-tests-config.php
+          sed -i "s/localhost/127.0.0.1/g" /tmp/wordpress-tests-lib/wp-tests-config.php
 
       - name: Prepare WordPress test environment
         run: |
