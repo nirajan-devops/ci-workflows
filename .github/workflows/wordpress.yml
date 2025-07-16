@@ -14,15 +14,12 @@ on:
       test-command:
         description: 'Custom test command to run'
         type: string
-        default: 'composer test'
+        default: 'composer test:ci'
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    container:
-      image: wordpress:latest
-      options: --user=www-data
-
+    
     services:
       db:
         image: mysql:5.7
@@ -63,7 +60,7 @@ jobs:
           define('DB_NAME', 'wordpress_test');
           define('DB_USER', 'wordpress');
           define('DB_PASSWORD', 'wordpress');
-          define('DB_HOST', 'db');
+          define('DB_HOST', '127.0.0.1');
           define('DB_CHARSET', 'utf8');
           define('DB_COLLATE', '');
           
@@ -92,19 +89,25 @@ jobs:
           require_once ABSPATH . 'wp-settings.php';
           EOF
 
+          # Install WP-CLI
+          curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+          chmod +x wp-cli.phar
+          sudo mv wp-cli.phar /usr/local/bin/wp
+
           # Install WordPress core
+          wp core download --version=${{ inputs.wordpress-version }} --force
           wp core install --url=example.org --title="Test Site" --admin_user=admin --admin_password=password --admin_email=admin@example.org --skip-email
 
       - name: Run tests
         run: ${{ inputs.test-command }}
         env:
           WP_TESTS_DIR: /tmp/wordpress-tests-lib
-          WP_ROOT_DIR: /var/www/html
+          WP_ROOT_DIR: ${{ github.workspace }}
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: test-results.xml
+          path: ${{ github.workspace }}/test-results.xml
           retention-days: 5
