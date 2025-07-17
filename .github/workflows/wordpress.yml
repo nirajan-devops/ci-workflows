@@ -54,6 +54,12 @@ jobs:
           extensions: mbstring, dom, mysqli, intl, xml, curl
           coverage: none
           ini-values: memory_limit=512M
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-    
 
       - name: Install Composer dependencies
         run: |
