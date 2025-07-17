@@ -38,7 +38,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y unzip mysql-client wget
+          sudo apt-get install -y subversion mysql-client wget
 
       - name: Install WP-CLI
         run: |
@@ -61,18 +61,11 @@ jobs:
 
       - name: Set up WordPress test library
         run: |
-          # Download and extract WordPress
-          wget https://wordpress.org/nightly-builds/wordpress-latest.zip -O /tmp/wordpress-tests.zip
-          unzip -q /tmp/wordpress-tests.zip -d /tmp/
-          
           # Create test directory structure
-          mkdir -p /tmp/wordpress-tests-lib/includes
-          mkdir -p /tmp/wordpress-tests-lib/data
+          mkdir -p /tmp/wordpress-tests-lib
           
-          # Copy test files from the correct location
-          cp -r /tmp/wordpress/wp-content/plugins/wordpress-importer/tests/phpunit/includes/* /tmp/wordpress-tests-lib/includes/
-          cp -r /tmp/wordpress/wp-content/plugins/wordpress-importer/tests/phpunit/data/* /tmp/wordpress-tests-lib/data/
-          cp /tmp/wordpress/wp-tests-config-sample.php /tmp/wordpress-tests-lib/
+          # Checkout WordPress tests from SVN
+          svn checkout https://develop.svn.wordpress.org/trunk/tests/phpunit/ /tmp/wordpress-tests-lib --quiet
           
           # Set up test config
           cp /tmp/wordpress-tests-lib/wp-tests-config-sample.php /tmp/wordpress-tests-lib/wp-tests-config.php
@@ -80,13 +73,10 @@ jobs:
           sed -i "s/yourusernamehere/wordpress/g" /tmp/wordpress-tests-lib/wp-tests-config.php
           sed -i "s/yourpasswordhere/wordpress/g" /tmp/wordpress-tests-lib/wp-tests-config.php
           sed -i "s/localhost/127.0.0.1/g" /tmp/wordpress-tests-lib/wp-tests-config.php
-          
-          # Clean up
-          rm -rf /tmp/wordpress /tmp/wordpress-tests.zip
 
       - name: Prepare WordPress test environment
         run: |
-          # Download WordPress core again for the actual installation
+          # Download WordPress core
           mkdir -p /tmp/wordpress
           wp core download --path=/tmp/wordpress --version=${{ inputs.wordpress-version }} --force
           
