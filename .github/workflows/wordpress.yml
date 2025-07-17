@@ -42,7 +42,7 @@ jobs:
 
       - name: Install WP-CLI
         run: |
-          curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+          wget https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
           chmod +x wp-cli.phar
           sudo mv wp-cli.phar /usr/local/bin/wp
           wp --info
@@ -62,12 +62,13 @@ jobs:
       - name: Set up WordPress test library
         run: |
           # Create test directory structure
-          mkdir -p /tmp/wordpress-tests-lib
+          mkdir -p /tmp/wordpress-tests-lib/includes
+          mkdir -p /tmp/wordpress-tests-lib/data
           
-          # Download test files directly from GitHub mirror
-          wget https://github.com/WordPress/wordpress-develop/archive/refs/heads/trunk.zip -O /tmp/wp-tests.zip
-          unzip -q /tmp/wp-tests.zip -d /tmp/
-          mv /tmp/wordpress-develop-trunk/tests/phpunit /tmp/wordpress-tests-lib
+          # Download essential test files directly
+          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/bootstrap.php -P /tmp/wordpress-tests-lib/includes/
+          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/functions.php -P /tmp/wordpress-tests-lib/includes/
+          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/testcase.php -P /tmp/wordpress-tests-lib/includes/
           
           # Create test config
           echo "<?php
