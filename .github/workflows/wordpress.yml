@@ -59,16 +59,20 @@ jobs:
         run: |
           composer install --prefer-dist --no-progress --no-suggest --optimize-autoloader
 
-      - name: Set up WordPress test library
+      - name: Set up complete WordPress test library
         run: |
           # Create test directory structure
           mkdir -p /tmp/wordpress-tests-lib/includes
-          mkdir -p /tmp/wordpress-tests-lib/data
           
-          # Download essential test files directly
+          # Download all required test files
           wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/bootstrap.php -P /tmp/wordpress-tests-lib/includes/
           wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/functions.php -P /tmp/wordpress-tests-lib/includes/
           wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/testcase.php -P /tmp/wordpress-tests-lib/includes/
+          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/class-basic-object.php -P /tmp/wordpress-tests-lib/includes/
+          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/class-exception-handler.php -P /tmp/wordpress-tests-lib/includes/
+          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/class-wp-error.php -P /tmp/wordpress-tests-lib/includes/
+          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/class-wp-factory.php -P /tmp/wordpress-tests-lib/includes/
+          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/factory.php -P /tmp/wordpress-tests-lib/includes/
           
           # Create test config
           echo "<?php
