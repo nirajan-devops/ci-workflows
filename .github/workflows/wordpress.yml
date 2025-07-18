@@ -142,7 +142,6 @@ jobs:
         run: |
           export WP_TESTS_DIR=/tmp/wordpress-tests-lib
           export WP_ROOT_DIR=/tmp/wordpress
-          export ABSPATH=/tmp/wordpress/
           ${{ inputs.test-command }}
         env:
           WP_TESTS_DIR: /tmp/wordpress-tests-lib
