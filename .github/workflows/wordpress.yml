@@ -114,7 +114,7 @@ jobs:
         run: |
           export WP_TESTS_DIR=/tmp/wordpress-tests-lib
           export WP_ROOT_DIR=/tmp/wordpress
-          ${{ inputs.test-command }}
+          vendor/bin/phpunit
         env:
           WP_TESTS_DIR: /tmp/wordpress-tests-lib
           WP_ROOT_DIR: /tmp/wordpress
