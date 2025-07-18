@@ -67,6 +67,13 @@ jobs:
 
       - name: Make phpunit executable (optional)
         run: chmod +x vendor/bin/phpunit
+      - name: Download WordPress test library
+        run: |
+          mkdir -p /tmp/wordpress-tests-lib
+          mkdir -p /tmp/wordpress-tests-lib/data
+          svn export --force https://develop.svn.wordpress.org/trunk/tests/phpunit/includes/ /tmp/wordpress-tests-lib/includes/
+          svn export --force https://develop.svn.wordpress.org/trunk/tests/phpunit/data/ /tmp/wordpress-tests-lib/data/
+  
 
       - name: Run PHPUnit tests
         run: composer test    
@@ -121,6 +128,7 @@ jobs:
           cp -r wp-content /tmp/wordpress/wp-content
           
           # Create wp-config.php
+          cat <<EOF > /tmp/wordpress-tests-lib/wp-tests-config.php
           echo "<?php
           define('DB_NAME', 'wordpress_test');
           define('DB_USER', 'wordpress');
