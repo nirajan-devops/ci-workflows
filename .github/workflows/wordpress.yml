@@ -19,7 +19,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     services:
       db:
         image: mysql:5.7
@@ -54,12 +54,13 @@ jobs:
           extensions: mbstring, dom, mysqli, intl, xml, curl
           coverage: none
           ini-values: memory_limit=512M
+
       - name: Cache Composer
         uses: actions/cache@v4
         with:
           path: ~/.composer/cache
           key: composer-${{ hashFiles('composer.lock') }}
-          restore-keys: composer-    
+          restore-keys: composer-
 
       - name: Install Composer dependencies
         run: |
@@ -67,41 +68,20 @@ jobs:
 
       - name: Make phpunit executable (optional)
         run: chmod +x vendor/bin/phpunit
+
       - name: Download WordPress test library
         run: |
-          mkdir -p /tmp/wordpress-tests-lib
-          mkdir -p /tmp/wordpress-tests-lib/data
-          svn export --force https://develop.svn.wordpress.org/trunk/tests/phpunit/includes/ /tmp/wordpress-tests-lib/includes/
-          svn export --force https://develop.svn.wordpress.org/trunk/tests/phpunit/data/ /tmp/wordpress-tests-lib/data/
-  
-
-      - name: Run PHPUnit tests
-        run: composer test    
-
-      - name: Set up complete WordPress test library
-        run: |
-          # Create test directory structure
           mkdir -p /tmp/wordpress-tests-lib/includes
-          
-          # Download all required test files from reliable sources
+          mkdir -p /tmp/wordpress-tests-lib/data
+
+          # Download required includes files
           wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/bootstrap.php -P /tmp/wordpress-tests-lib/includes/
           wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/functions.php -P /tmp/wordpress-tests-lib/includes/
-          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/testcase.php -P /tmp/wordpress-tests-lib/includes/
-          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/class-basic-object.php -P /tmp/wordpress-tests-lib/includes/
           wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/install.php -P /tmp/wordpress-tests-lib/includes/
 
-          # For files that might have moved, use alternative sources
-          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/exceptions.php -P /tmp/wordpress-tests-lib/includes/ || echo "Skipping exceptions.php"
-          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/utils.php -P /tmp/wordpress-tests-lib/includes/ || echo "Skipping utils.php"
-          
-
-          # Create minimal required test files that might be missing
-          echo "<?php class WP_Error {} ?>" > /tmp/wordpress-tests-lib/includes/class-wp-error.php
-          echo "<?php class WP_UnitTest_Factory {} ?>" > /tmp/wordpress-tests-lib/includes/class-wp-factory.php
-          echo "<?php function _wp_unit_test_factory() {} ?>" > /tmp/wordpress-tests-lib/includes/factory.php
-          
-          # Create test config
-          echo "<?php
+          # Create wp-tests-config.php
+          cat <<EOF > /tmp/wordpress-tests-lib/wp-tests-config.php
+          <?php
           define('DB_NAME', 'wordpress_test');
           define('DB_USER', 'wordpress');
           define('DB_PASSWORD', 'wordpress');
@@ -116,35 +96,13 @@ jobs:
           \$table_prefix = 'wptests_';
           define('WP_DEBUG', true);
           define('WP_ENVIRONMENT_TYPE', 'ci');
-          ?>" > /tmp/wordpress-tests-lib/wp-tests-config.php
+          EOF
 
-      - name: Prepare WordPress test environment
+      - name: Prepare WordPress core
         run: |
-          # Download WordPress core
           mkdir -p /tmp/wordpress
           wp core download --path=/tmp/wordpress --version=${{ inputs.wordpress-version }} --force
-          
-          # Copy wp-content from repository
           cp -r wp-content /tmp/wordpress/wp-content
-          
-          # Create wp-config.php
-          cat <<EOF > /tmp/wordpress-tests-lib/wp-tests-config.php
-          echo "<?php
-          define('DB_NAME', 'wordpress_test');
-          define('DB_USER', 'wordpress');
-          define('DB_PASSWORD', 'wordpress');
-          define('DB_HOST', '127.0.0.1');
-          define('DB_CHARSET', 'utf8');
-          define('DB_COLLATE', '');
-          \$table_prefix = 'wp_';
-          define('WP_DEBUG', true);
-          define('WP_ENVIRONMENT_TYPE', 'ci');
-          define('WP_TESTS_DIR', '/tmp/wordpress-tests-lib');
-          if (!defined('ABSPATH')) {
-            define('ABSPATH', __DIR__ . '/');
-          }
-          require_once ABSPATH . 'wp-settings.php';
-          ?>" > /tmp/wordpress/wp-config.php
 
       - name: Run tests
         run: |
