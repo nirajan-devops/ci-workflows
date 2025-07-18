@@ -65,6 +65,12 @@ jobs:
         run: |
           composer install --prefer-dist --no-progress --no-suggest --optimize-autoloader
 
+      - name: Make phpunit executable (optional)
+        run: chmod +x vendor/bin/phpunit
+            
+      - name: Run PHPUnit tests
+        run: composer test    
+
       - name: Set up complete WordPress test library
         run: |
           # Create test directory structure
