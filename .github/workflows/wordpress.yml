@@ -71,13 +71,18 @@ jobs:
 
       - name: Download WordPress test library
         run: |
-          mkdir -p /tmp/wordpress-tests-lib/includes
-          mkdir -p /tmp/wordpress-tests-lib/data
+          # Download all necessary files including class-basic-object.php and others
+          svn export --quiet https://develop.svn.wordpress.org/trunk/tests/phpunit/includes/ /tmp/wordpress-tests-lib/includes
 
-          # Download required includes files
-          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/bootstrap.php -P /tmp/wordpress-tests-lib/includes/
-          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/functions.php -P /tmp/wordpress-tests-lib/includes/
-          wget https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/install.php -P /tmp/wordpress-tests-lib/includes/
+          # Optionally download wp-tests-config.php if needed
+          svn export --quiet https://develop.svn.wordpress.org/trunk/wp-tests-config-sample.php /tmp/wordpress-tests-lib/wp-tests-config.php
+
+          # Replace DB credentials (modify if you're using a different DB setup)
+          sed -i "s/youremptytestdbnamehere/wordpress_test/" /tmp/wordpress-tests-lib/wp-tests-config.php
+          sed -i "s/yourusernamehere/wordpress/" /tmp/wordpress-tests-lib/wp-tests-config.php
+          sed -i "s/yourpasswordhere/wordpress/" /tmp/wordpress-tests-lib/wp-tests-config.php
+          sed -i "s/localhost/127.0.0.1/" /tmp/wordpress-tests-lib/wp-tests-config.php
+          
 
           # Create wp-tests-config.php
           cat <<EOF > /tmp/wordpress-tests-lib/wp-tests-config.php
