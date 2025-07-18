@@ -111,7 +111,7 @@ jobs:
 
       - name: Run tests
         run: |
-          export WP_TESTS_DIR=/tmp/wordpress-tests-lib
+          # export WP_TESTS_DIR=/tmp/wordpress-tests-lib
           export WP_ROOT_DIR=/tmp/wordpress
           ${{ inputs.test-command }}
         env:
