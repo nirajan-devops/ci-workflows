@@ -72,17 +72,18 @@ jobs:
       - name: Download WordPress test library
         run: |
           # Download all necessary files including class-basic-object.php and others
-          svn export --quiet https://develop.svn.wordpress.org/trunk/tests/phpunit/includes/ /tmp/wordpress-tests-lib/includes
+          svn export --force https://develop.svn.wordpress.org/trunk/tests/phpunit /tmp/wordpress-tests-lib
+
 
           # Optionally download wp-tests-config.php if needed
           svn export --quiet https://develop.svn.wordpress.org/trunk/wp-tests-config-sample.php /tmp/wordpress-tests-lib/wp-tests-config.php
 
-          # Replace DB credentials (modify if you're using a different DB setup)
-          sed -i "s/youremptytestdbnamehere/wordpress_test/" /tmp/wordpress-tests-lib/wp-tests-config.php
-          sed -i "s/yourusernamehere/wordpress/" /tmp/wordpress-tests-lib/wp-tests-config.php
-          sed -i "s/yourpasswordhere/wordpress/" /tmp/wordpress-tests-lib/wp-tests-config.php
-          sed -i "s/localhost/127.0.0.1/" /tmp/wordpress-tests-lib/wp-tests-config.php
-          
+           # Download wp-tests-config.php and configure DB settings
+           svn export --force https://develop.svn.wordpress.org/trunk/wp-tests-config-sample.php /tmp/wordpress-tests-lib/wp-tests-config.php
+           sed -i "s/youremptytestdbnamehere/wordpress_test/" /tmp/wordpress-tests-lib/wp-tests-config.php
+           sed -i "s/yourusernamehere/wordpress/" /tmp/wordpress-tests-lib/wp-tests-config.php
+           sed -i "s/yourpasswordhere/wordpress/" /tmp/wordpress-tests-lib/wp-tests-config.php
+           sed -i "s/localhost/127.0.0.1/" /tmp/wordpress-tests-lib/wp-tests-config.php
 
           # Create wp-tests-config.php
           cat <<EOF > /tmp/wordpress-tests-lib/wp-tests-config.php
@@ -111,7 +112,7 @@ jobs:
 
       - name: Run tests
         run: |
-          # export WP_TESTS_DIR=/tmp/wordpress-tests-lib
+          export WP_TESTS_DIR=/tmp/wordpress-tests-lib
           export WP_ROOT_DIR=/tmp/wordpress
           ${{ inputs.test-command }}
         env:
