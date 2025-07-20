@@ -126,3 +126,16 @@ jobs:
           name: test-results
           path: ${{ github.workspace }}/test-results.xml
           retention-days: 5
+      - name: Notify Slack on Success
+        if: success()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"✅ CI Workflow *${{ github.workflow }}* succeeded for `${{ github.repository }}` on branch `${{ github.ref_name }}`."}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify Slack on Failure
+        if: failure()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"❌ CI Workflow *${{ github.workflow }}* failed for `${{ github.repository }}` on branch `${{ github.ref_name }}`."}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}      
