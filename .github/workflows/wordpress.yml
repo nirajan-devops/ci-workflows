@@ -1,4 +1,4 @@
-name: WordPress CI
+name: WordPress CI   ## CI Workflow for WordPress
 
 on:
   workflow_call:
@@ -15,6 +15,9 @@ on:
         description: 'Custom test command to run'
         type: string
         default: 'composer test:ci'
+    secrets:
+      SLACK_WEBHOOK_URL:
+        required: true  
 
 jobs:
   test:
