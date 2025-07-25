@@ -10,9 +10,11 @@ on:
         required: true
         type: string
       port:
-        required: false
+        required: true
         type: string
-        default: "3000"
+      container-port:
+        required: true
+        type: string 
       dockerfile-path:
         required: false
         type: string
