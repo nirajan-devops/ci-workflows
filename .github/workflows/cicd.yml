@@ -76,7 +76,7 @@ jobs:
             sudo docker pull ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}
 
             # Run container
-            sudo docker run -d -p ${{ inputs.port }}:3000 --name ${{ inputs.container-name }} ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}
+            sudo docker run -d -p ${{ inputs.port }}:${{ inputs.container-port }} --name ${{ inputs.container-name }} ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}
       - name: Notify Slack on Success
         if: success()
         run: |
