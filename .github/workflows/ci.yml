@@ -1,0 +1,94 @@
+name: Reusable Deploy to EC2 via GHCR
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        required: true
+        type: string
+      container-name:
+        required: true
+        type: string
+      port:
+        required: true
+        type: string
+      container-port:
+        required: true
+        type: string 
+      dockerfile-path:
+        required: false
+        type: string
+        default: "Dockerfile"
+    secrets:
+      HOST:
+        required: true
+      USERNAME:
+        required: true
+      SSH_PRIVATE_KEY:
+        required: true
+      GHCR_USERNAME:
+        required: true
+      GHCR_TOKEN:
+        required: true
+      SLACK_WEBHOOK_URL:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }} -f ${{ inputs.dockerfile-path }} .
+
+      - name: Push image to GHCR
+        run: |
+          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}
+
+      - name: SSH and deploy container
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Install Docker if not installed
+            if ! command -v docker &> /dev/null; then
+              sudo apt update
+              sudo apt install -y docker.io
+              sudo systemctl enable docker
+              sudo systemctl start docker
+            fi
+
+            # Log in to GHCR inside the server
+            echo "${{ secrets.GHCR_TOKEN }}" | sudo docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+
+            # Stop and remove existing container
+            sudo docker stop ${{ inputs.container-name }} || true
+            sudo docker rm ${{ inputs.container-name }} || true
+
+            # Pull latest image
+            sudo docker pull ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}
+
+            # Run container
+            sudo docker run -d -p ${{ inputs.port }}:${{ inputs.container-port }} --name ${{ inputs.container-name }} ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}
+      - name: Notify Slack on Success
+        if: success()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"✅ CI Workflow *${{ github.workflow }}* succeeded for `${{ github.repository }}` on branch `${{ github.ref_name }}`."}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify Slack on Failure
+        if: failure()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"❌ CI Workflow *${{ github.workflow }}* failed for `${{ github.repository }}` on branch `${{ github.ref_name }}`."}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}         
