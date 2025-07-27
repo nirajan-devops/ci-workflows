@@ -19,6 +19,10 @@ on:
         required: false
         type: string
         default: "Dockerfile"
+      docker-compose-path:
+        required: false
+        type: string
+        default: "docker-compose.yml"  
     secrets:
       HOST:
         required: true
