@@ -102,10 +102,10 @@ jobs:
             sudo sed -i "s|ghcr.io/\$GHCR_USERNAME/${{ inputs.image-name }}|ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}|g" docker-compose.yml
 
             # Stop and remove previous containers
-            sudo docker compose -f docker-compose.yml down || true
+            sudo docker compose docker-compose.yml down || true
 
             # Start multi-container app
-            sudo docker compose -f docker-compose.yml up -d
+            sudo docker compose docker-compose.yml up -d
 
       # Slack notifications remain the same
       - name: Notify Slack on Success
