@@ -58,58 +58,11 @@ jobs:
 
       - name: Prepare deployment files
         run: |
-          # Copy necessary files to a deployment directory
+          # Create deployment directory with all necessary files
           mkdir deployment
           cp ${{ inputs.docker-compose-path }} deployment/docker-compose.yml
-          
-          # Create deployment script
-          cat << 'EOF' > deployment/deploy.sh
-          #!/bin/bash
-          # Install Docker & Docker Compose if needed
-          if ! command -v docker &> /dev/null; then
-            sudo apt update
-            sudo apt install -y docker.io
-            sudo systemctl enable docker
-            sudo systemctl start docker
-          fi
-          if ! command -v docker compose &> /dev/null; then
-            sudo curl -SL https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
-            sudo chmod +x /usr/local/bin/docker-compose
-            sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose || true
-          fi
-
-          # Log in to GHCR
-          echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u $GHCR_USERNAME --password-stdin
-
-          # Pull image
-          sudo docker pull $IMAGE_NAME
-
-          # Stop and remove previous containers
-          sudo docker compose -f docker-compose.yml down || true
-
-          # Start multi-container app
-          sudo docker compose -f docker-compose.yml up -d
-          EOF
-          
-          chmod +x deployment/deploy.sh
-
-      - name: SSH and deploy containers
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            # Create deployment directory
-            mkdir -p ~/deployment
-            
-            # Move to deployment directory
-            cd ~/deployment
-          script_stop: false
-        env:
-          IMAGE_NAME: ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          cp ${{ inputs.dockerfile-path }} deployment/Dockerfile
+          cp -r wp-content deployment/wp-content
 
       - name: Copy deployment files to EC2
         uses: appleboy/scp-action@master
@@ -119,8 +72,9 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "deployment/*"
           target: "~/deployment"
+          strip_components: 1
 
-      - name: Execute deployment on EC2
+      - name: SSH and deploy containers
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
@@ -128,7 +82,31 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/deployment
-            ./deploy.sh
+            
+            # Install Docker & Docker Compose if needed
+            if ! command -v docker &> /dev/null; then
+              sudo apt update
+              sudo apt install -y docker.io
+              sudo systemctl enable docker
+              sudo systemctl start docker
+            fi
+            if ! command -v docker compose &> /dev/null; then
+              sudo curl -SL https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+              sudo chmod +x /usr/local/bin/docker-compose
+              sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose || true
+            fi
+
+            # Log in to GHCR
+            echo "${{ secrets.GHCR_TOKEN }}" | sudo docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+
+            # Stop and remove previous containers
+            sudo docker compose -f docker-compose.yml down || true
+
+            # Update image reference in docker-compose.yml
+            sudo sed -i "s|ghcr.io/\$GHCR_USERNAME/${{ inputs.image-name }}|ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}|g" docker-compose.yml
+
+            # Start multi-container app
+            sudo docker compose -f docker-compose.yml up -d
 
       - name: Notify Slack on Success
         if: success()
