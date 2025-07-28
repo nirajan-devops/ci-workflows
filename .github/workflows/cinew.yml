@@ -4,25 +4,31 @@ on:
   workflow_call:
     inputs:
       image-name:
+        description: "Name (and tag) for your Docker image"
         required: true
         type: string
       container-name:
+        description: "Container name to use on EC2"
         required: true
         type: string
       port:
+        description: "Host port to bind"
         required: true
         type: string
       container-port:
+        description: "Container port to expose"
         required: true
-        type: string 
+        type: string
       dockerfile-path:
+        description: "Path to your Dockerfile"
         required: false
         type: string
         default: "Dockerfile"
-      docker-compose-path:
+      compose-file-path:
+        description: "Path to your docker-compose.yml"
         required: false
         type: string
-        default: "docker-compose.yml"  
+        default: "docker-compose.yml"
     secrets:
       HOST:
         required: true
@@ -34,8 +40,6 @@ on:
         required: true
       GHCR_TOKEN:
         required: true
-      SLACK_WEBHOOK_URL:
-        required: true
 
 jobs:
   deploy:
@@ -45,79 +49,95 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+      - name: Log in to GHCR
+        run: |
+          echo "${{ secrets.GHCR_TOKEN }}" \
+            | docker login ghcr.io \
+              -u "${{ secrets.GHCR_USERNAME }}" \
+              --password-stdin
+
+      - name: Determine if docker-compose.yml exists
+        id: check-compose
+        run: |
+          if [[ -f "${{ inputs.compose-file-path }}" ]]; then
+            echo "use_compose=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "use_compose=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build Docker image
         run: |
-          # Use absolute path for Dockerfile
-          DOCKERFILE_PATH="$(pwd)/${{ inputs.dockerfile-path }}"
-          docker build -t "ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}" -f "$DOCKERFILE_PATH" .
+          if [[ "${{ steps.check-compose.outputs.use_compose }}" == "true" ]]; then
+            docker compose \
+              -f "${{ inputs.compose-file-path }}" build
+          else
+            docker build \
+              -t ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }} \
+              -f "${{ inputs.dockerfile-path }}" .
+          fi
 
       - name: Push image to GHCR
         run: |
-          docker push "ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}"
+          # Only a single‐container build gets pushed by name
+          if [[ "${{ steps.check-compose.outputs.use_compose }}" == "false" ]]; then
+            docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}
+          fi
 
-      - name: Prepare deployment files
+      - name: Save image as TAR (if no compose)
+        if: steps.check-compose.outputs.use_compose == 'false'
         run: |
-          # Create deployment directory with all necessary files
-          mkdir -p deployment
-          cp "${{ inputs.docker-compose-path }}" deployment/docker-compose.yml
-          cp "${{ inputs.dockerfile-path }}" deployment/Dockerfile
-          cp -r wp-content deployment/wp-content
+          docker save \
+            ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }} \
+            -o "${{ inputs.image-name }}.tar"
 
       - name: Copy deployment files to EC2
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "deployment/*"
-          target: "~/deployment"
-          strip_components: 1
+          source: "docker-compose.yml,${{ inputs.image-name }}.tar,nginx/default.conf"
+          target: "/home/${{ secrets.USERNAME }}/deploy"
+          overwrite: true
+          rm: false
 
-      - name: SSH and deploy containers
-        uses: appleboy/ssh-action@master
+      - name: SSH & deploy to EC2
+        uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd ~/deployment
-            
-            # Install Docker & Docker Compose
-            sudo apt update
-            sudo apt install -y docker.io
-            sudo systemctl enable docker
-            sudo systemctl start docker
-            
-            sudo curl -SL https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
-            sudo chmod +x /usr/local/bin/docker-compose
-            sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose || true
+            set -e
+            cd ~/deploy
 
-            # Log in to GHCR
-            echo "${{ secrets.GHCR_TOKEN }}" | sudo docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+            # Ensure Docker & Compose are installed
+            if ! command -v docker >/dev/null; then
+              sudo apt-get update -y
+              sudo apt-get install -y docker.io
+              sudo systemctl enable --now docker
+            fi
+            if ! docker compose version >/dev/null 2>&1; then
+              sudo mkdir -p /usr/local/lib/docker/cli-plugins
+              sudo curl -SL \
+                https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-linux-x86_64 \
+                -o /usr/local/lib/docker/cli-plugins/docker-compose
+              sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+            fi
 
-            # Update image reference in docker-compose.yml
-            sudo sed -i "s|ghcr.io/\$GHCR_USERNAME/${{ inputs.image-name }}|ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}|g" docker-compose.yml
+            if [[ -f "${{ inputs.compose-file-path }}" ]]; then
+              # Multi-container via Compose
+              sudo docker compose \
+                -f "${{ inputs.compose-file-path }}" \
+                up -d --build
+            else
+              # Single container via Dockerfile
+              sudo docker load -i "${{ inputs.image-name }}.tar"
+              sudo docker rm -f "${{ inputs.container-name }}" || true
+              sudo docker run -d \
+                --name "${{ inputs.container-name }}" \
+                -p "${{ inputs.port }}:${{ inputs.container-port }}" \
+                ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}
+            fi
 
-            # Stop and remove previous containers
-            sudo docker compose docker-compose.yml down || true
-
-            # Start multi-container app
-            sudo docker compose docker-compose.yml up -d
-
-      # Slack notifications remain the same
-      - name: Notify Slack on Success
-        if: success()
-        run: |
-          curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"✅ CI Workflow *${{ github.workflow }}* succeeded for `${{ github.repository }}` on branch `${{ github.ref_name }}`."}' \
-            ${{ secrets.SLACK_WEBHOOK_URL }}
-
-      - name: Notify Slack on Failure
-        if: failure()
-        run: |
-          curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"❌ CI Workflow *${{ github.workflow }}* failed for `${{ github.repository }}` on branch `${{ github.ref_name }}`."}' \
-            ${{ secrets.SLACK_WEBHOOK_URL }}
+            sudo docker ps -a
