@@ -19,7 +19,7 @@ on:
         required: false
         type: string
         default: "Dockerfile"
-      docker-compose-path:
+      compose-file-path:
         required: false
         type: string
         default: "docker-compose.yml"  
@@ -82,17 +82,17 @@ jobs:
             # Pull image
             sudo docker pull ghcr.io/${{ secrets.GHCR_USERNAME }}/${{ inputs.image-name }}
 
-            # Check for docker-compose.yml
-            if [ -f docker-compose.yml ]; then
-              echo "▶️ docker-compose.yml found. Using Docker Compose..."
+            # Check for compose file
+            if [ -f "${{ inputs.compose-file-path }}" ]; then
+              echo "▶️ ${{ inputs.compose-file-path }} found. Using Docker Compose..."
 
               # Stop previous Compose stack if any
-              sudo docker compose down || true
+              sudo docker compose -f ${{ inputs.compose-file-path }} down || true
 
               # Start multi-container app
-              sudo docker compose up -d
+              sudo docker compose -f ${{ inputs.compose-file-path }} up -d
             else
-              echo "▶️ No docker-compose.yml found. Running single container..."
+              echo "▶️ No compose file found. Running single container..."
 
               # Stop old container
               sudo docker stop ${{ inputs.container-name }} || true
